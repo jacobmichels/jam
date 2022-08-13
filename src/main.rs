@@ -1,61 +1,69 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use clap::Parser;
 use cli::Args;
-use colour::green_ln;
-use dirs::home_dir;
-use rspotify::{
-    model::{SearchResult, SearchType},
-    prelude::{BaseClient, OAuthClient},
-    scopes, AuthCodePkceSpotify, Credentials, OAuth,
-};
+use colour::{blue_ln, green_ln};
+use question::{Answer, Question};
+
+use crate::{models::playlist::SlimPlaylist, spotify::SpotifyPKCEClient, traits::Spotify};
 
 mod cli;
+mod models;
+mod spotify;
+mod traits;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
 
+    let spotify = SpotifyPKCEClient::new(
+        "13034b6371a04f47bc53e5feb8435183",
+        "http://localhost:8888/callback",
+        vec!["playlist-modify-private".to_string()],
+    );
+
+    run(Box::new(spotify), args).await
+}
+
+async fn run(mut spotify: Box<dyn Spotify>, args: Args) -> Result<()> {
+    spotify.auth().await?;
+
     green_ln!("Playlist query: {}", args.playlist_name);
 
-    let creds = Credentials::new_pkce("13034b6371a04f47bc53e5feb8435183");
+    let playlists = spotify.search_playlists(&args.playlist_name).await?;
 
-    let oauth = OAuth {
-        redirect_uri: "http://localhost:8888/callback".to_string(),
-        scopes: scopes!("playlist-modify-private"),
-        ..Default::default()
-    };
+    if playlists.is_empty() {
+        bail!("No playlists matched that query.")
+    }
 
-    let mut spotify = AuthCodePkceSpotify::new(creds, oauth);
-    let config_dir = home_dir().unwrap().join(".jam");
-    let config_file = config_dir.join("credentials.json");
+    let mut selected_playlist: Option<SlimPlaylist> = None;
 
-    std::fs::create_dir_all(config_dir).unwrap();
-    spotify.config.cache_path = config_file;
-    spotify.config.token_cached = true;
-    spotify.config.token_refreshing = true;
-
-    let url = spotify.get_authorize_url(None).unwrap();
-    spotify.prompt_for_token(&url).await.unwrap();
-
-    let search_result = spotify
-        .search(
-            &args.playlist_name,
-            &SearchType::Playlist,
-            None,
-            None,
-            Some(50),
-            None,
-        )
-        .await
-        .unwrap();
-
-    match search_result {
-        SearchResult::Playlists(page) => {
-            for item in page.items {
-                println!("{}", item.name);
+    if playlists.len() == 1 {
+        selected_playlist = Some(playlists.first().unwrap().clone());
+    } else {
+        for playlist in playlists {
+            blue_ln!("Found playlist: {}", playlist.name);
+            let ans = Question::new("Is this the playlist you want to convert? (Y/n)")
+                .default(Answer::YES)
+                .yes_no()
+                .ask()
+                .unwrap();
+            if let Answer::YES = ans {
+                selected_playlist = Some(playlist);
+                break;
             }
         }
-        _ => unreachable!(),
+    }
+
+    if selected_playlist.is_none() {
+        bail!("No playlist selected");
+    }
+
+    let playlist = spotify
+        .get_full_playlist(&selected_playlist.unwrap().id)
+        .await?;
+
+    for track in playlist.tracks {
+        blue_ln!("{}", track.title);
     }
 
     Ok(())
