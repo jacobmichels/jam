@@ -1,8 +1,7 @@
-use std::path::PathBuf;
-
 use anyhow::Result;
 use clap::Parser;
 use cli::Args;
+use dirs::home_dir;
 use rspotify::{
     model::{SearchResult, SearchType},
     prelude::{BaseClient, OAuthClient},
@@ -26,9 +25,11 @@ async fn main() -> Result<()> {
     };
 
     let mut spotify = AuthCodePkceSpotify::new(creds, oauth);
+    let config_dir = home_dir().unwrap().join(".jam");
+    let config_file = config_dir.join("credentials.json");
 
-    std::fs::create_dir_all("~/.jam/").unwrap();
-    spotify.config.cache_path = PathBuf::from("~/.jam/credentials.json");
+    std::fs::create_dir_all(config_dir).unwrap();
+    spotify.config.cache_path = config_file;
     spotify.config.token_cached = true;
     spotify.config.token_refreshing = true;
 
