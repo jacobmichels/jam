@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 use cli::Args;
+use colour::green_ln;
 use dirs::home_dir;
 use rspotify::{
     model::{SearchResult, SearchType},
@@ -14,7 +15,7 @@ mod cli;
 async fn main() -> Result<()> {
     let args = Args::parse();
 
-    println!("{}", args.playlist_name);
+    green_ln!("Playlist query: {}", args.playlist_name);
 
     let creds = Credentials::new_pkce("13034b6371a04f47bc53e5feb8435183");
 
@@ -35,21 +36,10 @@ async fn main() -> Result<()> {
 
     let url = spotify.get_authorize_url(None).unwrap();
     spotify.prompt_for_token(&url).await.unwrap();
-    // println!(
-    //     "{:?}",
-    //     spotify
-    //         .token
-    //         .lock()
-    //         .await
-    //         .unwrap()
-    //         .as_ref()
-    //         .unwrap()
-    //         .access_token
-    // );
 
     let search_result = spotify
         .search(
-            "Top Songs - Canada",
+            &args.playlist_name,
             &SearchType::Playlist,
             None,
             None,
