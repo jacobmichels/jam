@@ -6,7 +6,7 @@ use dirs::home_dir;
 use rspotify::{
     model::{PlaylistId, SearchResult, SearchType, TrackId, UserId},
     prelude::{BaseClient, OAuthClient, PlayableId},
-    AuthCodePkceSpotify, Credentials, OAuth,
+    AuthCodePkceSpotify, Config, Credentials, OAuth,
 };
 
 use crate::{
@@ -36,15 +36,18 @@ impl SpotifyPKCEClient {
             ..Default::default()
         };
 
-        let mut spotify = AuthCodePkceSpotify::new(credentials, oauth_config);
-
         let config_dir = home_dir().unwrap().join(".jam");
         let config_file = config_dir.join("credentials.json");
-
         fs::create_dir_all(config_dir).unwrap();
-        spotify.config.cache_path = config_file;
-        spotify.config.token_cached = true;
-        spotify.config.token_refreshing = true;
+
+        let config = Config {
+            cache_path: config_file,
+            token_cached: true,
+            token_refreshing: true,
+            ..Default::default()
+        };
+
+        let spotify = AuthCodePkceSpotify::with_config(credentials, oauth_config, config);
 
         SpotifyPKCEClient { client: spotify }
     }
