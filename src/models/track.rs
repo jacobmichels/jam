@@ -1,11 +1,12 @@
 use anyhow::bail;
-use rspotify::model::{PlayableItem, PlaylistItem};
+use rspotify::model::{FullTrack, PlayableItem, PlaylistItem};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Track {
     pub id: String,
     pub title: String,
-    pub artist: String,
+    pub artists: Vec<String>,
+    pub explicit: bool,
 }
 
 impl TryFrom<&PlaylistItem> for Track {
@@ -18,20 +19,35 @@ impl TryFrom<&PlaylistItem> for Track {
                 }
 
                 return Ok(Track {
-                    artist: song
+                    artists: song
                         .artists
-                        .first()
-                        .expect("track contained no artist")
-                        .name
-                        .clone(),
+                        .iter()
+                        .map(|artist| artist.name.clone())
+                        .collect(),
                     id: song.id.clone().expect("track contained no id").to_string(),
                     title: song.name.clone(),
+                    explicit: song.explicit,
                 });
             } else {
                 bail!("Playable item is a podcast episode");
             }
         } else {
             bail!("no playable item for playlist item");
+        }
+    }
+}
+
+impl From<&FullTrack> for Track {
+    fn from(value: &FullTrack) -> Self {
+        Track {
+            artists: value
+                .artists
+                .iter()
+                .map(|artist| artist.name.clone())
+                .collect(),
+            explicit: value.explicit,
+            id: value.id.clone().unwrap().to_string(),
+            title: value.name.clone(),
         }
     }
 }

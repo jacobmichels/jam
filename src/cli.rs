@@ -7,5 +7,5 @@ use clap::Parser;
 #[clap(about = "Convert Spotify playlists to explicit", long_about = None)]
 #[clap(propagate_version = true)]
 pub struct Args {
-    pub playlist_name: String,
+    pub playlist_query: String,
 }

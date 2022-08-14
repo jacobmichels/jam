@@ -32,6 +32,7 @@ impl From<FullPlaylist> for Playlist {
 pub struct SlimPlaylist {
     pub id: String,
     pub name: String,
+    pub owner: String,
 }
 
 impl From<&SimplifiedPlaylist> for SlimPlaylist {
@@ -39,6 +40,11 @@ impl From<&SimplifiedPlaylist> for SlimPlaylist {
         SlimPlaylist {
             id: sp.id.to_string(),
             name: sp.name.clone(),
+            owner: sp
+                .owner
+                .clone()
+                .display_name
+                .expect("Owner has no display name"),
         }
     }
 }

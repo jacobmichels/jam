@@ -10,7 +10,10 @@ use rspotify::{
 };
 
 use crate::{
-    models::playlist::{Playlist, SlimPlaylist},
+    models::{
+        playlist::{Playlist, SlimPlaylist},
+        track::Track,
+    },
     traits::Spotify,
 };
 
@@ -55,10 +58,17 @@ impl Spotify for SpotifyPKCEClient {
         Ok(())
     }
 
-    async fn search_playlists(&self, playlist: &str) -> Result<Vec<SlimPlaylist>> {
+    async fn search_playlists(&self, playlist_name: &str) -> Result<Vec<SlimPlaylist>> {
         let search_result = self
             .client
-            .search(playlist, &SearchType::Playlist, None, None, Some(50), None)
+            .search(
+                playlist_name,
+                &SearchType::Playlist,
+                None,
+                None,
+                Some(50),
+                None,
+            )
             .await?;
 
         if let SearchResult::Playlists(playlists) = search_result {
@@ -74,5 +84,18 @@ impl Spotify for SpotifyPKCEClient {
         let playlist_response = self.client.playlist(&playlist_id, None, None).await?;
 
         return Ok(Playlist::from(playlist_response));
+    }
+
+    async fn search_tracks(&self, track_name: &str) -> Result<Vec<Track>> {
+        let search_result = self
+            .client
+            .search(track_name, &SearchType::Track, None, None, Some(50), None)
+            .await?;
+
+        if let SearchResult::Tracks(tracks) = search_result {
+            return Ok(tracks.items.iter().map(Track::from).collect());
+        } else {
+            bail!("Invalid search: result did not contain tracks")
+        }
     }
 }
