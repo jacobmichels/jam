@@ -8,6 +8,8 @@ use clap::Parser;
 #[clap(propagate_version = true)]
 pub struct Args {
     pub playlist_query: String,
-    #[clap(long, short)]
+    #[clap(long, short, help = "If set, playlist creation will be skipped")]
     pub dry_run: bool,
+    #[clap(long, short, help = "Output playlist name")]
+    pub output: Option<String>,
 }

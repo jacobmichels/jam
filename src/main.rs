@@ -134,8 +134,17 @@ async fn run(mut spotify: Box<dyn Spotify + Send + Sync>, args: Args) -> Result<
 
     let user_id = spotify.get_user_id().await?;
 
+    let output_playlist_name;
+    if let Some(name) = args.output {
+        output_playlist_name = name;
+    } else {
+        output_playlist_name = selected_playlist.name;
+    }
+
+    green_ln!("Creating playlist: {}", output_playlist_name);
+
     let playlist_id = spotify
-        .create_playlist(&selected_playlist.name, user_id.as_str())
+        .create_playlist(&output_playlist_name, user_id.as_str())
         .await?;
 
     spotify.add_tracks_to_playlist(&playlist_id, tracks).await?;

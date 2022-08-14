@@ -138,7 +138,7 @@ impl Spotify for SpotifyPKCEClient {
             .client
             .user_playlist_create(
                 &UserId::from_str(user_id)?,
-                &format!("{} (explicit)", playlist_name),
+                playlist_name,
                 Some(false),
                 Some(false),
                 None,
