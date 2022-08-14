@@ -127,6 +127,11 @@ async fn run(mut spotify: Box<dyn Spotify + Send + Sync>, args: Args) -> Result<
         return Ok(());
     }
 
+    if args.dry_run {
+        red_ln!("Dry run mode enabled, not attempting playlist creation");
+        return Ok(());
+    }
+
     let user_id = spotify.get_user_id().await?;
 
     let playlist_id = spotify
