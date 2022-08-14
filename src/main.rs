@@ -1,9 +1,12 @@
+use std::sync::Arc;
+
 use anyhow::{bail, Result};
 use clap::Parser;
 use cli::Args;
 use colour::{blue_ln, green_ln, red_ln};
 use models::track::Track;
 use question::{Answer, Question};
+use tokio::sync::mpsc;
 
 use crate::{models::playlist::SlimPlaylist, spotify::SpotifyPKCEClient, traits::Spotify};
 
@@ -25,7 +28,7 @@ async fn main() -> Result<()> {
     run(Box::new(spotify), args).await
 }
 
-async fn run(mut spotify: Box<dyn Spotify>, args: Args) -> Result<()> {
+async fn run(mut spotify: Box<dyn Spotify + Send + Sync>, args: Args) -> Result<()> {
     spotify.auth().await?;
 
     green_ln!("Playlist query: {}", args.playlist_query);
@@ -71,28 +74,60 @@ async fn run(mut spotify: Box<dyn Spotify>, args: Args) -> Result<()> {
 
     let num_tracks = playlist.tracks.len();
 
-    let mut new_tracks = Vec::with_capacity(num_tracks);
-    let mut should_create_playlist = false;
+    // let mut new_tracks = Vec::with_capacity(num_tracks);
+
+    let mut handles = Vec::with_capacity(playlist.tracks.len());
+
+    let spotify = Arc::new(spotify);
+
+    let (track_sender, mut track_receiver) = mpsc::unbounded_channel();
+    let track_sender = Arc::new(track_sender);
 
     for track in playlist.tracks {
-        if !track.explicit {
-            let tracks = spotify.search_tracks(&track.title).await?;
-            let new = find_explicit_version(&track, tracks);
-            if let Some(track) = new {
-                green_ln!("Replacing track: {}", track.title);
-                should_create_playlist = true;
-                new_tracks.push(track);
+        let spotify = spotify.clone();
+        let track_sender = track_sender.clone();
+
+        let handle = tokio::spawn(async move {
+            if !track.explicit {
+                let tracks = spotify.search_tracks(&track.title).await.unwrap();
+                let new = find_explicit_version(&track, tracks);
+                if let Some(track) = new {
+                    green_ln!("Replacing track: {}", track.title);
+                    track_sender.send((track, true)).expect("channel closed");
+                } else {
+                    track_sender.send((track, false)).expect("channel closed");
+                }
             } else {
-                new_tracks.push(track);
+                track_sender.send((track, false)).expect("channel closed");
             }
-        } else {
-            new_tracks.push(track);
+        });
+        handles.push(handle);
+    }
+
+    for handle in handles {
+        handle.await?;
+    }
+    track_receiver.close();
+
+    let mut should_create_playlist = false;
+    let mut tracks = Vec::with_capacity(num_tracks);
+    loop {
+        let message = track_receiver.recv().await;
+        if message.is_none() {
+            break;
         }
+        let (track, new) = message.unwrap();
+        if new {
+            should_create_playlist = true;
+        }
+        tracks.push(track);
     }
 
     if !should_create_playlist {
         red_ln!("Found no replaceable tracks, new playlist will not be created")
     }
+
+    blue_ln!("{}:{}", num_tracks, tracks.len());
 
     Ok(())
 }

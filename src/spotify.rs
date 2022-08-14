@@ -17,6 +17,7 @@ use crate::{
     traits::Spotify,
 };
 
+#[derive(Clone)]
 pub struct SpotifyPKCEClient {
     client: AuthCodePkceSpotify,
 }
