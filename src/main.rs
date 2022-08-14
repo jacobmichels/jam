@@ -68,23 +68,21 @@ async fn run(mut spotify: Box<dyn Spotify + Send + Sync>, args: Args) -> Result<
         bail!("No playlist selected");
     }
 
-    let playlist = spotify
-        .get_full_playlist(&selected_playlist.unwrap().id)
-        .await?;
+    let selected_playlist = selected_playlist.unwrap();
+
+    let playlist = spotify.get_full_playlist(&selected_playlist.id).await?;
 
     let num_tracks = playlist.tracks.len();
 
-    // let mut new_tracks = Vec::with_capacity(num_tracks);
-
     let mut handles = Vec::with_capacity(playlist.tracks.len());
 
-    let spotify = Arc::new(spotify);
+    let spotify_arc = Arc::new(spotify.clone());
 
     let (track_sender, mut track_receiver) = mpsc::unbounded_channel();
     let track_sender = Arc::new(track_sender);
 
     for track in playlist.tracks {
-        let spotify = spotify.clone();
+        let spotify = spotify_arc.clone();
         let track_sender = track_sender.clone();
 
         let handle = tokio::spawn(async move {
@@ -124,10 +122,19 @@ async fn run(mut spotify: Box<dyn Spotify + Send + Sync>, args: Args) -> Result<
     }
 
     if !should_create_playlist {
-        red_ln!("Found no replaceable tracks, new playlist will not be created")
+        red_ln!("Found no replaceable tracks, new playlist will not be created");
+        return Ok(());
     }
 
-    blue_ln!("{}:{}", num_tracks, tracks.len());
+    let user_id = spotify.get_user_id().await?;
+
+    let playlist_id = spotify
+        .create_playlist(&selected_playlist.name, user_id.as_str())
+        .await?;
+
+    spotify.add_tracks_to_playlist(&playlist_id, tracks).await?;
+
+    green_ln!("Playlist created!");
 
     Ok(())
 }

@@ -4,8 +4,8 @@ use std::{collections::HashSet, fs, str::FromStr};
 use async_trait::async_trait;
 use dirs::home_dir;
 use rspotify::{
-    model::{PlaylistId, SearchResult, SearchType},
-    prelude::{BaseClient, OAuthClient},
+    model::{PlaylistId, SearchResult, SearchType, TrackId, UserId},
+    prelude::{BaseClient, OAuthClient, PlayableId},
     AuthCodePkceSpotify, Credentials, OAuth,
 };
 
@@ -98,5 +98,45 @@ impl Spotify for SpotifyPKCEClient {
         } else {
             bail!("Invalid search: result did not contain tracks")
         }
+    }
+
+    async fn get_user_id(&self) -> Result<String> {
+        let response = self.client.me().await?;
+        return Ok(response.id.to_string());
+    }
+
+    async fn add_tracks_to_playlist(&self, playlist_id: &str, tracks: Vec<Track>) -> Result<()> {
+        let mut track_ids: Vec<Box<dyn PlayableId>> = Vec::with_capacity(tracks.len());
+        for track in tracks.iter() {
+            let id = TrackId::from_str(&track.id)?;
+            track_ids.push(Box::new(id));
+        }
+
+        let mut track_id_refs: Vec<&dyn PlayableId> = Vec::with_capacity(tracks.len());
+        for track_id in track_ids.iter() {
+            track_id_refs.push(track_id.as_ref());
+        }
+
+        let playlist_id = &PlaylistId::from_str(playlist_id)?;
+
+        self.client
+            .playlist_add_items(playlist_id, track_id_refs, None)
+            .await?;
+
+        Ok(())
+    }
+
+    async fn create_playlist(&self, playlist_name: &str, user_id: &str) -> Result<String> {
+        let response = self
+            .client
+            .user_playlist_create(
+                &UserId::from_str(user_id)?,
+                &format!("{} (explicit)", playlist_name),
+                Some(false),
+                Some(false),
+                None,
+            )
+            .await?;
+        return Ok(response.id.to_string());
     }
 }
