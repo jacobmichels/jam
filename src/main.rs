@@ -17,6 +17,7 @@ mod traits;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    env_logger::init();
     let args = Args::parse();
 
     let spotify = SpotifyPKCEClient::new(

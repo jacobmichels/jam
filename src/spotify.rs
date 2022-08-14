@@ -57,7 +57,11 @@ impl SpotifyPKCEClient {
 impl Spotify for SpotifyPKCEClient {
     async fn auth(&mut self) -> Result<()> {
         let url = self.client.get_authorize_url(None)?;
-        self.client.prompt_for_token(&url).await?;
+        let response = self.client.prompt_for_token(&url).await;
+        if response.is_err() {
+            fs::remove_file(&self.client.config.cache_path)?;
+            self.client.prompt_for_token(&url).await?;
+        }
 
         Ok(())
     }
