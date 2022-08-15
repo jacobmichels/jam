@@ -1,6 +1,8 @@
 # jam
 Converts Spotify playlists from clean -> explicit
 
+![example output](/images/output.png)
+
 ## Motivation
 
 Spotify likes to be inconsistent with their playlists, mixing clean and explicit songs within the same playlist. To me, this is annoying. I don't want to listen to censored music. This tool is a solution to this inconsistency.
